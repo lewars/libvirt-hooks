@@ -1,0 +1,7 @@
+[Unit]
+Description=Check and unbind NVIDIA from VFIO if no VMs running
+After=libvirtd.service
+
+[Service]
+Type=oneshot
+ExecStart=/usr/local/bin/check-qemu-and-unbind.sh

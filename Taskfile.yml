@@ -1,0 +1,61 @@
+version: '3'
+
+vars:
+  SCRIPTS_DIR: .
+  HOOKS_DIR: /etc/libvirt/hooks/qemu.d/nvidia-container-toolkit
+  SYSTEMD_DIR: /etc/systemd/system
+
+tasks:
+  install:
+    desc: Install all VFIO/NVIDIA management scripts and configurations
+    cmds:
+      - task: create-directories
+      - task: install-scripts
+      - task: install-systemd
+      - task: enable-timer
+
+  create-directories:
+    desc: Create required directories
+    cmds:
+      - mkdir -p {{.HOOKS_DIR}}/prepare/begin
+      - mkdir -p {{.HOOKS_DIR}}/release/end
+      - mkdir -p /usr/local/bin
+    status:
+      - test -d {{.HOOKS_DIR}}/prepare/begin
+      - test -d {{.HOOKS_DIR}}/release/end
+      - test -d /usr/local/bin
+
+  install-scripts:
+    desc: Install VFIO management scripts
+    deps: [create-directories]
+    cmds:
+      - cp {{.SCRIPTS_DIR}}/bind_vfio.sh {{.HOOKS_DIR}}/prepare/begin/
+      - cp {{.SCRIPTS_DIR}}/unbind_vfio.sh {{.HOOKS_DIR}}/release/end/
+      - cp {{.SCRIPTS_DIR}}/check-qemu-unbind.sh /usr/local/bin/
+      - chmod +x {{.HOOKS_DIR}}/prepare/begin/bind_vfio.sh
+      - chmod +x {{.HOOKS_DIR}}/release/end/unbind_vfio.sh
+      - chmod +x /usr/local/bin/check-qemu-unbind.sh
+
+  install-systemd:
+    desc: Install systemd service and timer
+    cmds:
+      - cp {{.SCRIPTS_DIR}}/nvidia-unbind-check.service {{.SYSTEMD_DIR}}/
+      - cp {{.SCRIPTS_DIR}}/nvidia-unbind-check.timer {{.SYSTEMD_DIR}}/
+
+  enable-timer:
+    desc: Enable and start the systemd timer
+    deps: [install-systemd]
+    cmds:
+      - systemctl daemon-reload
+      - systemctl enable nvidia-unbind-check.timer
+      - systemctl start nvidia-unbind-check.timer
+
+  remove:
+    desc: Remove all VFIO/NVIDIA management scripts and configurations
+    cmds:
+      - systemctl stop nvidia-unbind-check.timer || true
+      - systemctl disable nvidia-unbind-check.timer || true
+      - rm -f {{.SYSTEMD_DIR}}/nvidia-unbind-check.*
+      - rm -f /usr/local/bin/check-qemu-unbind.sh
+      - rm -rf {{.HOOKS_DIR}}
+      - systemctl daemon-reload
