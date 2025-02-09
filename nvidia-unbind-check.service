@@ -4,4 +4,4 @@ After=libvirtd.service
 
 [Service]
 Type=oneshot
-ExecStart=/usr/local/bin/check-qemu-and-unbind.sh
+ExecStart=/usr/local/bin/check-qemu-unbind.sh
